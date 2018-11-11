@@ -1,0 +1,109 @@
+#include <iostream>
+#include<fstream>
+#include<string>
+
+using namespace std;
+
+class iSet{
+	public :
+	char type ;
+	string field0,field1,fieldImm , fieldA , fieldB   ;
+	int  addr_field0 ,addr_fieldImm , line_addr , opcode ;
+	
+};
+
+string* seperateTo5field(string x){
+	cout << x << endl ;
+	string *inst = new string[5] ;
+	int j=0 ,k=0;
+	for(int i=0 ; i<x.size() ; i++){
+		if( x[0] == ' ' && k==0 ){
+			inst[0] = "no_label" ;
+			k++ ;
+		}
+		if( x[i] != ' ' && j==0 || x[i] != ' ' && j != 0){ 
+			inst[k] += x[i] ; j++ ;
+		}
+		if(x[i] == ' ' && j != 0){
+			j=0 ,k++;
+		}
+		if(k==5)return inst ;
+	}
+	return inst ;	
+} 
+
+int setOpcode(string t){
+		if (t=="add")return 0 ;
+		else if (t=="nand")return 1 ;
+		else if (t=="lw")return 2 ;
+		else if (t=="sw")return 3 ;
+		else if (t=="beq")return 4 ;
+		else if (t=="jalr")return 5 ; 
+		else if (t=="halt")return 6 ;
+		else if (t=="noop")return 7 ;
+		else return 9 ;
+}
+
+char checkType(string x){
+	if( x=="add" | x=="nand" ) return 'R' ;
+	else if( x=="lw" | x=="sw" | x=="beq" ) return 'I';
+	else  if( x=="jalr" ) return 'J' ;
+	else if( x=="halt" | x=="noop" ) return 'O' ; 
+	else return 'N' ; //none type
+}
+
+iSet setField(string *x,int addr){
+	iSet y ;
+	char c = checkType(x[1]) ;
+	if( c == 'R' || c == 'I' || c == 'J' ){
+		// set fiel0 if line has Label or not
+		if(x[0] != "no_label"){
+			y.field0 = x[0] ; y.addr_field0 = addr ;
+		}
+		else y.field0 = "no_label";
+		
+		y.line_addr = addr ;	//assign address of line for that instruction
+		y.field1 = x[1] ;		//field1 = assembly part
+		y.fieldA = x[2] ; 		//field2 = reg1 = regA part
+		y.fieldB = x[3] ;		//field3 = reg2 = regB part
+		if( c == 'R' || c == 'I' ){		//if J type there's no need to assign Imm/adrress
+			y.fieldImm = x[4] ;			//only R,I type need to assign this part (Imm/adress/rd)
+		}
+	}else{
+		y.line_addr = addr ;
+			if(x[0] != "no_label"){
+			y.field0 = x[0] ; y.addr_field0 = addr ;	
+		}
+		else y.field0 = "no_label";
+		y.field1 = x[1] ;
+	}
+	y.opcode = setOpcode(x[1]);
+	return y ;
+}
+
+int main()
+{
+	ifstream file("cmd1.txt");
+	string text;
+	
+	iSet inst[100] ; 
+	int i=0,j=0;
+	
+	while(getline(file,text)){
+		string *p  ; 
+		p = seperateTo5field(text) ;
+		inst[i] = setField(p,i) ;
+		
+		cout << "line :: " <<		inst[i].line_addr << endl ;
+		cout << "label :: " << 		inst[i].field0 << endl ;
+		cout << "assembler :: " << 	inst[i].field1 << endl ;
+		cout << "regA :: " << 		inst[i].fieldA << endl ;
+		cout << "regB :: " << 		inst[i].fieldB << endl ;
+		cout << "Immidiate :: " << inst[i].fieldImm << endl ;
+		cout << "Opcode :: " << inst[i].opcode << endl;
+		cout << "----------------------" << endl ;
+	
+		i++;
+	}
+}
+
