@@ -1,0 +1,215 @@
+#include <iostream>
+#include<fstream>
+#include <iostream>
+#include<string>
+#include<bitset>
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+using namespace std;
+
+class iSet{
+	public :
+	char type ;
+	string field0,field1,fieldImm , fieldA , fieldB  , mCode_bin , mCode_dec ;
+	int  opcode , addr_fieldA ,addr_fieldB , addr_field0   , line_addr, addr_fieldImm  ;	
+	
+};
+
+string* seperateTo5field(string x){
+	string *inst = new string[5] ;
+	int j=0 ,k=0;
+	for(int i=0 ; i<x.size() ; i++){
+		if( x[0] == ' ' && k==0 ){
+			inst[0] = "no_label" ;
+			k++ ;
+		}
+		if( x[i] != ' ' && j==0 || x[i] != ' ' && j != 0){ 
+			inst[k] += x[i] ; j++ ;
+		}
+		if(x[i] == ' ' && j != 0){
+			j=0 ,k++;
+		}
+		if(k==5)return inst ;
+	}
+	return inst ;	
+} 
+
+int setOpcode(string t){
+		if (t=="add")return 0 ;
+		else if (t=="nand")return 1 ;
+		else if (t=="lw")return 2 ;
+		else if (t=="sw")return 3 ;
+		else if (t=="beq")return 4 ;
+		else if (t=="jalr")return 5 ; 
+		else if (t=="halt")return 6 ;
+		else if (t=="noop")return 7 ;
+		else return 9 ; 				// error ----------- opcode undefined
+}
+
+char checkType(string x){
+	if( x=="add" | x=="nand" ) return 'R' ;
+	else if( x=="lw" | x=="sw" | x=="beq" ) return 'I';
+	else  if( x=="jalr" ) return 'J' ;
+	else if( x=="halt" | x=="noop" ) return 'O' ; 
+	else if (x==".fill" ) return 'F' ;
+	else return 'N' ; //none type
+}
+
+iSet setField(string *x,int addr){
+	iSet y ;
+	char c = checkType(x[1]) ;
+	y.type = c ;
+	if( c == 'R' || c == 'I' || c == 'J' ){
+		// set fiel0 if line has Label or not
+		y.field0 = x[0] ; y.addr_field0 = addr ;
+					
+		y.line_addr = addr ;	//assign address of line for that instruction
+		y.field1 = x[1] ;		//field1 = assembly part
+		y.fieldA = x[2] ; 		//field2 = reg1 = regA part
+		y.fieldB = x[3] ;		//field3 = reg2 = regB part
+		if( c == 'R' || c == 'I' ){		//if J type there's no need to assign Imm/adrress
+			y.fieldImm = x[4] ;			//only R,I type need to assign this part (Imm/adress/rd)
+		}
+		
+	}else if( c == 'F'){
+		//cout << "this is .fill \n" << "x[0] = " << x[0] << endl << "x[1] = " << x[1] << endl << "x[2] = " << x[2] << endl << "x[3] = " << x[3] << endl << "x[4] = " << x[4] << endl ;
+		y.field0 = x[0] ;
+		y.field1 = x[1] ;
+		y.fieldImm = x[2] ;
+		y.line_addr = addr ;
+	}else{
+		y.line_addr = addr ;
+			if(x[0] != "no_label"){
+			y.field0 = x[0] ; y.addr_field0 = addr ;	
+		}
+		else y.field0 = "no_label";
+		y.field1 = x[1] ;
+	}
+	y.opcode = setOpcode(x[1]);
+	return y ;
+}
+
+void printField(iSet inst){
+	cout << "****************************************************\n" ;
+		cout << "line :: " 		<<	inst.line_addr << endl ;
+		cout << "label :: " 	<< 	inst.field0 << endl ;
+		cout << "assembler :: " << 	inst.field1 << endl ;
+		cout << "regA :: " 		<<	inst.fieldA << endl ;
+		cout << "regB :: " 		<< 	inst.fieldB << endl ;
+		cout << "Immidiate :: " << 	inst.fieldImm << endl ;
+		cout << "Opcode :: " 	<< 	inst.opcode << endl;
+		cout << "----------------------" << endl ;
+	cout << "****************************************************\n" ;
+}
+
+int getImmAddr(iSet *all,iSet x,int y){
+		for(int i=0 ; i<y  ; i++){
+		iSet b = all[i] ;
+			if(b.field0 == x.fieldImm){
+			//			printField(all[i]);
+			if(x.field1 == "beq"){
+				 b.line_addr += 1 ;
+			}
+			if(x.field1 == ".fill"){
+				return b.line_addr ;
+			}
+			if(x.line_addr >= all[i].line_addr ){
+				return b.line_addr *= -1 ;
+			}
+			return b.line_addr ;
+		}	
+	}
+//	cout << "------ Undefine labels ------" << endl ;
+	return 99 ;
+}
+
+string dec2bin(int n, int nBit){
+	switch(nBit){
+		case 3 : 	return bitset<3>(n).to_string() ; break;
+		case 7 : 	return bitset<7>(n).to_string() ; break;
+		case 13 : 	return bitset<13>(n).to_string() ;break;
+		case 16 : 	return bitset<16>(n).to_string() ;break;
+		case 22 : 	return bitset<22>(n).to_string() ;break;
+		case 32 : 	return bitset<32>(n).to_string() ;break;
+	}
+}
+
+signed long bin2dec(string x){
+	bitset<32> bunchOfBits(string(x.c_str()));
+	unsigned long number = bunchOfBits.to_ulong();
+	return bunchOfBits.to_ulong() ;
+}
+
+int main(int argc, char* argv[])
+{
+
+	ifstream file("cmd1.txt"); 
+	string text;
+	
+	iSet inst[100] ; 
+	int i=0,j=0;
+	
+	while(getline(file,text)){
+		string *p  ; 
+		p = seperateTo5field(text) ; 	// p = array hold 5 field in String after return form func. that serpeate each field.
+		inst[i] = setField(p,i) ;		// inst = iSet class
+	//	printField(inst[i]);			
+		i++;
+	}
+	
+	for(int k=0 ; k<i ; k++){
+
+	//------------------------- assign address if field3 is label ----------------------------------
+		int d = atoi(inst[k].fieldImm.c_str()) ;	//if Label is string then d = 0 else d = int so this can check if label is text or number. 
+		if( d == 0 ){
+			inst[k].addr_fieldImm = getImmAddr(inst,inst[k],i) ;	// if label -> find address of that label
+		}else{
+			inst[k].addr_fieldImm = d ;							// if numeric address.
+		}
+	//--------------- assign address str to int before convert to binary -----------------	
+		inst[k].opcode = setOpcode(inst[k].field1);
+		char t = inst[k].type ;
+		if(t=='R' || t=='I' || t=='J'){
+			inst[k].addr_fieldA = atoi(inst[k].fieldA.c_str()) ;
+			inst[k].addr_fieldB = atoi(inst[k].fieldB.c_str()) ;
+		}
+		if(t=='O'){
+			inst[k].addr_fieldA = 0 ;
+			inst[k].addr_fieldB = 0 ;
+		}
+	//-------------------------------- convert to binary ------------------------------------
+	inst[k].mCode_bin = dec2bin(0,7) ;
+		if(t=='R'){
+			inst[k].mCode_bin += dec2bin(inst[k].opcode,3) ;
+			inst[k].mCode_bin += dec2bin(inst[k].addr_fieldA,3) ;
+			inst[k].mCode_bin += dec2bin(inst[k].addr_fieldB,3) ;
+			inst[k].mCode_bin += dec2bin(0,13) ;
+			inst[k].mCode_bin += dec2bin(inst[k].addr_fieldImm,3) ;
+		}
+		if(t=='I' || t=='J'){
+			inst[k].mCode_bin += dec2bin(inst[k].opcode,3) ;
+			inst[k].mCode_bin += dec2bin(inst[k].addr_fieldA,3) ;
+			inst[k].mCode_bin += dec2bin(inst[k].addr_fieldB,3) ;
+			inst[k].mCode_bin += dec2bin(inst[k].addr_fieldImm,16) ;
+		}
+		if(t=='O'){
+			inst[k].mCode_bin += dec2bin(inst[k].opcode,3) ;
+			inst[k].mCode_bin += dec2bin(0,22) ;
+		}
+		if(t=='F'){
+			inst[k].mCode_bin = dec2bin(inst[k].addr_fieldImm,32) ;
+		}				
+	}
+	
+	cout << endl << endl << endl << endl << endl ;
+	cout << "------------------------------------------" << endl ;
+	for(int l=0 ; l<i ; l++){
+		cout << inst[l].mCode_bin << " dec :: " << bin2dec(inst[l].mCode_bin) << endl;	
+	}
+	
+	file.close();
+	
+}
+
